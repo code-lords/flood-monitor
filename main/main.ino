@@ -1,105 +1,91 @@
+/*
+ * ESP8266 wifi module Interfacing with Arduino Uno
+ * http://www.electronicwings.com
+ */
 
-#include <SoftwareSerial.h>
-SoftwareSerial gprsSerial(2, 3);
+#include "ESP8266_AT.h"
 
-#include <String.h>
+/* Select Demo */
+// #define RECEIVE_DEMO			/* Define RECEIVE demo */
+#define SEND_DEMO /* Define SEND demo */
+
+/* Define Required fields shown below */
+#define DOMAIN "api.thingspeak.com"
+#define PORT "80"
+#define API_WRITE_KEY "F2MF68MG1ISM6EBO"
+#define CHANNEL_ID "2108694"
+
+#define SSID "SMILE-4G-LTE-0C27"
+#define PASSWORD "GHDD80ALT3F"
+#define SAFE_MODE_LED 8
+#define WARNING_MODE_LED 9
+#define DANGER_MODE_LED 10
+int sensorPin = A0; // select the input pin for the potentiometer
+
+char _buffer[150];
+uint8_t Connect_Status;
+#ifdef SEND_DEMO
+uint8_t Sample = 0;
+#endif
 
 void setup()
 {
-  gprsSerial.begin(9600); // the GPRS baud rate
-  Serial.begin(9600);     // the GPRS baud rate
+  Serial.begin(115200);
 
-  delay(1000);
+  while (!ESP8266_Begin())
+    ;
+  ESP8266_WIFIMode(BOTH_STATION_AND_ACCESPOINT);          /* 3 = Both (AP and STA) */
+  ESP8266_ConnectionMode(SINGLE);                         /* 0 = Single; 1 = Multi */
+  ESP8266_ApplicationMode(NORMAL);                        /* 0 = Normal Mode; 1 = Transperant Mode */
+  if (ESP8266_connected() == ESP8266_NOT_CONNECTED_TO_AP) /*Check WIFI connection*/
+    ESP8266_JoinAccessPoint(SSID, PASSWORD);              /*Connect to WIFI*/
+  ESP8266_Start(0, DOMAIN, PORT);
+  pinMode(SAFE_MODE_LED, OUTPUT);
+  pinMode(WARNING_MODE_LED, OUTPUT);
+  pinMode(DANGER_MODE_LED, OUTPUT);
+
+  digitalWrite(SAFE_MODE_LED, HIGH);
 }
 
 void loop()
 {
-  float h = 10.5; // dht.readHumidity();
-  float t = 10.4; // dht.readTemperature();
-  delay(100);
+  digitalWrite(DANGER_MODE_LED, LOW);
+  digitalWrite(WARNING_MODE_LED, LOW);
+  blink(SAFE_MODE_LED);
+  int sensorValue = analogRead(sensorPin);
+  if (sensorValue >= 10 && sensorValue <= 100)
+  {
+    blink(WARNING_MODE_LED);
+  }
+  else if (sensorValue > 100)
+  {
+    blink(DANGER_MODE_LED);
+  }
 
-  Serial.print("Temperature = ");
-  Serial.print(t);
-  Serial.println(" °C");
-  Serial.print("Humidity = ");
-  Serial.print(h);
-  Serial.println(" %");
+  Connect_Status = ESP8266_connected();
+  if (Connect_Status == ESP8266_NOT_CONNECTED_TO_AP) /*Again check connection to WIFI*/
+    ESP8266_JoinAccessPoint(SSID, PASSWORD);         /*Connect to WIFI*/
+  if (Connect_Status == ESP8266_TRANSMISSION_DISCONNECTED)
+    ESP8266_Start(0, DOMAIN, PORT); /*Connect to TCP port*/
 
-  if (gprsSerial.available())
-    Serial.write(gprsSerial.read());
+#ifdef SEND_DEMO
+  memset(_buffer, 0, 150);
+  sprintf(_buffer, "GET /update?api_key=%s&field1=%d", API_WRITE_KEY, sensorValue); /*connect to thingspeak server to post data using your API_WRITE_KEY*/
+  ESP8266_Send(_buffer);
+  delay(1500); /* Thingspeak server delay */
+#endif
 
-  gprsSerial.println("AT");
-  delay(1000);
-
-  gprsSerial.println("AT+CPIN?");
-  delay(1000);
-
-  gprsSerial.println("AT+CREG?");
-  delay(1000);
-
-  gprsSerial.println("AT+CGATT?");
-  delay(1000);
-
-  gprsSerial.println("AT+CIPSHUT");
-  delay(1000);
-
-  gprsSerial.println("AT+CIPSTATUS");
-  delay(2000);
-
-  gprsSerial.println("AT+CIPMUX=0");
-  delay(2000);
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CSTT=\"airtelgprs.com\""); // start task and setting the APN,
-  delay(1000);
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CIICR"); // bring up wireless connection
-  delay(3000);
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CIFSR"); // get local IP adress
-  delay(2000);
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CIPSPRT=0");
-  delay(3000);
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CIPSTART=\"TCP\",\"api.thingspeak.com\",\"80\""); // start up the connection
-  delay(6000);
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CIPSEND"); // begin send data to remote server
-  delay(4000);
-  ShowSerialData();
-
-  String str = "GET https://api.thingspeak.com/update?api_key=O13AOCHYYNU2LQ19&field1=" + String(t) + "&field2=" + String(h);
-  Serial.println(str);
-  gprsSerial.println(str); // begin send data to remote server
-
-  delay(4000);
-  ShowSerialData();
-
-  gprsSerial.println((char)26); // sending
-  delay(5000);                  // waitting for reply, important! the time is base on the condition of internet
-  gprsSerial.println();
-
-  ShowSerialData();
-
-  gprsSerial.println("AT+CIPSHUT"); // close the connection
-  delay(100);
-  ShowSerialData();
+#ifdef RECEIVE_DEMO
+  memset(_buffer, 0, 150);
+  sprintf(_buffer, "GET /channels/%s/feeds/last.txt", CHANNEL_ID); /*Connect to thingspeak server to get data using your channel ID*/
+  ESP8266_Send(_buffer);
+  Read_Data(_buffer);
+  delay(600);
+#endif
 }
-void ShowSerialData()
+void blink(int led)
 {
-  while (gprsSerial.available() != 0)
-    Serial.write(gprsSerial.read());
-  delay(5000);
+  digitalWrite(led, HIGH);
+  delay(200);
+  digitalWrite(led, LOW);
 }
