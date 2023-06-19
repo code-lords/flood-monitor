@@ -1,0 +1,104 @@
+// /*
+//  * ESP8266 wifi module Interfacing with Arduino Uno
+//  * http://www.electronicwings.com
+//  */
+
+// #include "ESP8266_AT.h"
+#include "ESP8266WiFi.h"
+// /* Select Demo */
+
+// /* Define Required fields shown below */
+#define DOMAIN "api.thingspeak.com"
+#define PORT "80"
+#define API_WRITE_KEY "F2MF68MG1ISM6EBO" //"2ZWG94PR66AK5GG6"
+// #define CHANNEL_ID "2186309"
+
+// #define SSID "SMILE-4G-LTE-0C27"
+#define SSID "Codelords"
+// #define PASSWORD "GHDD80ALT3F"
+#define PASSWORD "@DBr100%"
+        // Trigger Pin of Ultrasonic Sensor
+const int SAFE_MODE_LED = 8;    // For safe mode LED
+const int WARNING_MODE_LED = 9; // For the warning mode LED
+const int DANGER_MODE_LED = 10; // For the danger mode LED
+
+// int sensorPin = A0; // select the input pin for the potentiometer
+
+char _buffer[150];
+uint8_t Connect_Status;
+#ifdef SEND_DEMO
+uint8_t Sample = 0;
+#endif
+
+void setup()
+{
+  Serial.begin(115200);
+  // Serial.begin(9600); // Starting Serial Terminal
+
+  while (!ESP8266_Begin())
+    ;
+  ESP8266_WIFIMode(BOTH_STATION_AND_ACCESPOINT);          /* 3 = Both (AP and STA) */
+  ESP8266_ConnectionMode(SINGLE);                         /* 0 = Single; 1 = Multi */
+  ESP8266_ApplicationMode(NORMAL);                        /* 0 = Normal Mode; 1 = Transperant Mode */
+  if (ESP8266_connected() == ESP8266_NOT_CONNECTED_TO_AP) /*Check WIFI connection*/
+    ESP8266_JoinAccessPoint(SSID, PASSWORD);              /*Connect to WIFI*/
+  ESP8266_Start(0, DOMAIN, PORT);
+  pinMode(SAFE_MODE_LED, OUTPUT);
+  pinMode(WARNING_MODE_LED, OUTPUT);
+  pinMode(DANGER_MODE_LED, OUTPUT);
+  digitalWrite(SAFE_MODE_LED, HIGH);
+}
+
+void loop()
+{
+  digitalWrite(DANGER_MODE_LED, LOW);
+  digitalWrite(WARNING_MODE_LED, LOW);
+  blink(SAFE_MODE_LED);
+  int sensorValue = (int)distance(); // analogRead(sensorPin);
+  Serial.print(sensorValue);
+  if (sensorValue >= 4 && sensorValue <= 8)
+  {
+    blink(WARNING_MODE_LED);
+  }
+  else if (sensorValue < 4)
+  {
+    blink(DANGER_MODE_LED);
+  }
+
+  Serial.print("Checking connection status");
+
+  Connect_Status = ESP8266_connected();
+  if (Connect_Status == ESP8266_NOT_CONNECTED_TO_AP)
+  { /*Again check connection to WIFI*/
+    Serial.print("Not connected, Attempting to connect ....");
+
+    ESP8266_JoinAccessPoint(SSID, PASSWORD); /*Connect to WIFI*/
+  }
+  Serial.print("Checking TCP connection....");
+
+  if (Connect_Status == ESP8266_TRANSMISSION_DISCONNECTED)
+  {
+    Serial.print("Not connected, attempting to connect ...");
+
+    ESP8266_Start(0, DOMAIN, PORT); /*Connect to TCP port*/
+  }
+  Serial.print("TCP connection established sending data ...");
+
+  memset(_buffer, 0, 150);
+  sprintf(_buffer, "GET /update?api_key=%s&field1=%d", API_WRITE_KEY, sensorValue); /*connect to thingspeak server to post data using your API_WRITE_KEY*/
+
+  int ret = ESP8266_Send(_buffer);
+
+  Serial.print("\nRet value ");
+  Serial.print(ret)
+      Serial.print("Sent data ...\n");
+  Serial.print(_buffer);
+  delay(1500); /* Thingspeak server delay */
+}
+void blink(int led)
+{
+  digitalWrite(led, HIGH);
+  delay(500);
+  digitalWrite(led, LOW);
+}
+

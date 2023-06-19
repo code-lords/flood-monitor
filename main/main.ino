@@ -12,14 +12,19 @@
 /* Define Required fields shown below */
 #define DOMAIN "api.thingspeak.com"
 #define PORT "80"
-#define API_WRITE_KEY "F2MF68MG1ISM6EBO"
-#define CHANNEL_ID "2108694"
+#define API_WRITE_KEY "2ZWG94PR66AK5GG6"
+#define CHANNEL_ID "2186309"
 
 #define SSID "SMILE-4G-LTE-0C27"
 #define PASSWORD "GHDD80ALT3F"
 #define SAFE_MODE_LED 8
 #define WARNING_MODE_LED 9
 #define DANGER_MODE_LED 10
+int max_level = 465;
+int danger_start = 440;
+int warning_start = 420;
+
+
 int sensorPin = A0; // select the input pin for the potentiometer
 
 char _buffer[150];
@@ -53,15 +58,16 @@ void loop()
   digitalWrite(WARNING_MODE_LED, LOW);
   blink(SAFE_MODE_LED);
   int sensorValue = analogRead(sensorPin);
-  if (sensorValue >= 10 && sensorValue <= 100)
-  {
-    blink(WARNING_MODE_LED);
-  }
-  else if (sensorValue > 100)
+   if (sensorValue >= danger_start)
   {
     blink(DANGER_MODE_LED);
   }
 
+  else if (sensorValue >= warning_start )
+  {
+    blink(WARNING_MODE_LED);
+  }
+  
   Connect_Status = ESP8266_connected();
   if (Connect_Status == ESP8266_NOT_CONNECTED_TO_AP) /*Again check connection to WIFI*/
     ESP8266_JoinAccessPoint(SSID, PASSWORD);         /*Connect to WIFI*/
