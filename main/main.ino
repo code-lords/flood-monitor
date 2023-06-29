@@ -15,14 +15,14 @@
 #define API_WRITE_KEY "2ZWG94PR66AK5GG6"
 #define CHANNEL_ID "2186309"
 
-#define SSID "SMILE-4G-LTE-0C27"
-#define PASSWORD "GHDD80ALT3F"
+#define SSID "A15"
+#define PASSWORD "01234567"
 #define SAFE_MODE_LED 8
 #define WARNING_MODE_LED 9
 #define DANGER_MODE_LED 10
-int max_level = 465;
-int danger_start = 440;
-int warning_start = 420;
+int max_level = 310;
+int danger_start = 260;
+int warning_start = 220;
 
 
 int sensorPin = A0; // select the input pin for the potentiometer
